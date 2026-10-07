@@ -1,0 +1,366 @@
+name: Project XML Sync EM Cypress Tests
+
+# Two-image stack pipeline: runs this module's own automated_tests (E.130.*)
+# against the all-in-one REDCap image (redcap-aio) using the self-contained
+# cypress-runner-aio image. No 3-container compose, no host npm ci, no workspace
+# bind-mount of the harness — the AIO container IS REDCap+MariaDB+MailHog and the
+# runner is fully baked. This replaces the old redcap_docker + docker-compose.em
+# bind-mount + host-scaffolding flow.
+#
+# How the EM under test gets in: the published redcap-aio image bakes a REDCap
+# source that may or may not include this module; we bind-mount THIS commit's EM
+# over the container's modules/ dir so REDCap serves the code under test (no
+# rebuild). The E.130 specs enable and configure the module themselves. The
+# runner copies the whole module dir out (automated_tests, fixtures) and runs the
+# specs in place, so no extra workflow scaffolding is needed.
+#
+# Images (published by CCTC_REDCap_Docker/build-redcap-aio.yml and
+# redcap_cypress/build-cypress-runner-aio.yml). They must be built for the SAME
+# REDCap version — the runner docker-cp's that version's install SQL out of the
+# AIO container at runtime.
+#   ghcr.io/cctc-team/cctc_redcap_docker/redcap-aio:latest
+#   ghcr.io/cctc-team/redcap_cypress/cypress-runner-aio:latest
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - 'docs/**'
+  workflow_dispatch:
+
+# Cancel an in-progress run when a newer commit is pushed to the same ref, so
+# stacked pushes don't each consume a full run of Actions minutes.
+concurrency:
+  group: cypress-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  EM_NAME: "project_xml_sync"
+  EM_VERSION: "v1.0.0"
+  # Module directory name REDCap discovers it by (<prefix>_v<version>). Also the
+  # runner's EM_MODULE: it copies this dir's automated_tests out of the container
+  # and runs only its E.130.* specs.
+  EM_MODULE: "project_xml_sync_v1.0.0"
+  REDCAP_CONTAINER: CCTC_REDCap_Docker
+  AIO_IMAGE: ghcr.io/cctc-team/cctc_redcap_docker/redcap-aio:latest
+  RUNNER_IMAGE: ghcr.io/cctc-team/redcap_cypress/cypress-runner-aio:latest
+
+jobs:
+  cypress-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout Project XML Sync EM
+        uses: actions/checkout@v5
+        with:
+          path: project_xml_sync_em
+
+      - name: Log in to GitHub Container Registry
+        # The redcap-aio / cypress-runner-aio packages are private GHCR images;
+        # CCTC_TEAM_PAT needs read:packages. If they're made public, drop this.
+        run: echo "${{ secrets.CCTC_TEAM_PAT }}" | docker login "${REGISTRY}" -u ${{ github.actor }} --password-stdin
+
+      - name: Pull stack images
+        run: |
+          docker pull "${AIO_IMAGE}"
+          docker pull "${RUNNER_IMAGE}"
+
+      - name: Stage EM under test
+        run: |
+          # Strip VCS/CI dirs so only the module payload is mounted into REDCap.
+          rm -rf project_xml_sync_em/.git project_xml_sync_em/.github
+          echo "=== EM contents (mounted into REDCap as modules/${EM_MODULE}) ==="
+          ls -la project_xml_sync_em
+
+      - name: Start all-in-one REDCap (with EM under test)
+        run: |
+          # The AIO image is self-contained (REDCap + MariaDB + MailHog via
+          # supervisord); REDCAP_VERSION is baked and every other setting defaults,
+          # so no env/compose is needed. Publish only what the runner reaches over
+          # host networking (HTTPS + MailHog UI); DB/file access is via docker exec.
+          #
+          # Bind-mount THIS commit's EM over the image's modules/ dir so the running
+          # REDCap serves the code under test — no rebuild, exactly like the old
+          # docker-compose.em.yml overlay did.
+          docker run -d --name "${REDCAP_CONTAINER}" \
+            -p 8443:8443 -p 8025:8025 \
+            -v cctc_mariadb_data:/var/lib/mysql \
+            -v "${GITHUB_WORKSPACE}/project_xml_sync_em:/var/www/html/modules/${EM_MODULE}" \
+            "${AIO_IMAGE}"
+
+      - name: Wait for REDCap
+        run: |
+          echo "Waiting for REDCap (first boot initialises the DB)..."
+          timeout 360 bash -c 'until curl -k -s -f https://localhost:8443 > /dev/null 2>&1; do sleep 3; done'
+          echo "REDCap is up."
+          docker ps
+
+      - name: Run Project XML Sync EM specs (E.130.*)
+        run: |
+          mkdir -p results screenshots
+          # The runner is self-contained. EM_MODULE tells it to copy this module's
+          # automated_tests out of the AIO container (docker cp, via the mounted
+          # socket) into its /work/redcap_source/modules/<EM_MODULE>/, then run only
+          # that module's *.feature specs (excluding *REDUNDANT*) with retries. It
+          # reaches REDCap's DB/files over the socket and the UI over host net.
+          # Reports land in the bind-mounted results/ dir.
+          docker run --rm \
+            --network host \
+            --shm-size=2g \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${PWD}/results:/work/redcap_cypress/cypress/results" \
+            -v "${PWD}/screenshots:/work/redcap_cypress/cypress/screenshots" \
+            -e EM_MODULE="${EM_MODULE}" \
+            -e CYPRESS_MYSQL_CONTAINER="${REDCAP_CONTAINER}" \
+            -e CYPRESS_REDCAP_CONTAINER="${REDCAP_CONTAINER}" \
+            -e CYPRESS_baseUrl="https://localhost:8443" \
+            -e RUNNER_BROWSER=chromium \
+            -e CYPRESS_MAX_ATTEMPTS=3 \
+            -e CYPRESS_prettyEnabled=true \
+            -e CYPRESS_GROUP_PREFIX=project-xml-sync-em \
+            -e CYPRESS_DISABLE_RECORDING=1 \
+            -e CYPRESS_STALL_MS=900000 \
+            "${RUNNER_IMAGE}"
+
+      - name: Reclaim results ownership
+        if: always()
+        run: |
+          # The runner writes results as root; reclaim so upload-artifact can read.
+          sudo chown -R "$(id -u):$(id -g)" results 2>/dev/null || true
+
+      - name: Upload mochawesome reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ${{ env.EM_NAME }}_${{ env.EM_VERSION }}
+          # Replace this run's artifact on "Re-run failed jobs" (same run ID) so
+          # publish-report merges the fresh rerun JSON, not the stale failing one.
+          overwrite: true
+          path: |
+            results/json/*.json
+            results/html/**
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Upload Cypress screenshots
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: ${{ env.EM_NAME }}_${{ env.EM_VERSION }}-screenshots
+          path: screenshots/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f "${REDCAP_CONTAINER}" 2>/dev/null || true
+          docker volume rm cctc_mariadb_data 2>/dev/null || true
+
+  # Prune Actions artifact storage: keep only the N most recent workflow runs'
+  # artifacts and delete everything older, to stay under the org's 2 GB Actions
+  # storage quota. Runs after the test job so the current run's artifacts
+  # already exist and are counted among the kept runs.
+  prune-artifacts:
+    needs: cypress-tests
+    if: always()
+    # Best-effort housekeeping only. A GitHub runner-acquisition hiccup or an API
+    # blip here must never mark the whole run red — the tests already passed.
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+    env:
+      KEEP_RUNS: "2"   # keep the latest run + the one before it
+    steps:
+      - name: Delete artifacts from older runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Distinct run IDs that still have live artifacts, newest first
+          RUN_IDS=$(gh api "repos/${REPO}/actions/artifacts" --paginate \
+            --jq '.artifacts[] | select(.expired==false) | [.workflow_run.id, .created_at] | @tsv' \
+            | awk -F'\t' '{ if($2>seen[$1]) seen[$1]=$2 } END { for(r in seen) print seen[r]"\t"r }' \
+            | sort -r | awk -F'\t' '{print $2}')
+
+          KEEP_SET=$(echo "$RUN_IDS" | head -n "$KEEP_RUNS" | paste -sd, -)
+          echo "Keeping artifacts from runs: ${KEEP_SET:-<none>}"
+
+          gh api "repos/${REPO}/actions/artifacts" --paginate \
+            --jq '.artifacts[] | select(.expired==false) | [.workflow_run.id, .id, .name] | @tsv' \
+            | while IFS=$'\t' read -r runid artid name; do
+                case ",$KEEP_SET," in
+                  *",$runid,"*) ;;  # within the keep window — leave it
+                  *)
+                    echo "Deleting $name (run $runid, artifact $artid)"
+                    gh api -X DELETE "repos/${REPO}/actions/artifacts/${artid}" \
+                      && echo "  ok" || echo "  failed (continuing)"
+                    ;;
+                esac
+              done
+
+  # Merge the suite's mochawesome JSON into ONE combined HTML report and publish it
+  # to GitHub Pages, so each run links to a single browsable report (suites, failures,
+  # embedded screenshots) instead of a downloadable zip.
+  publish-report:
+    needs: cypress-tests
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write       # force-push the accumulated site to the pages-store branch
+      pages: write          # publish to Pages
+      id-token: write       # OIDC token deploy-pages uses to authenticate
+    # Pages allows only one in-flight deployment; serialise (don't cancel) so
+    # overlapping runs don't clobber each other mid-deploy.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Configure Pages
+        # enablement: true turns Pages on via the API on first run, so the repo
+        # doesn't need a manual Settings -> Pages change first.
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
+
+      - name: Download the suite's mochawesome results
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ${{ env.EM_NAME }}_${{ env.EM_VERSION }}   # the per-suite results artifact only (not -screenshots)
+          merge-multiple: true           # flatten into one tree
+          path: collected
+
+      - name: Guard the version key
+        run: |
+          # EM_VERSION becomes a path segment (site/<EM_VERSION>/) and the pages-store
+          # snapshot is force-pushed as truth. An empty/malformed value would make
+          # site/<empty>/ collapse into the site root and could clobber the index.
+          if ! printf '%s' "${EM_VERSION}" | grep -qE '^v?[0-9A-Za-z._-]+$'; then
+            echo "::error::EM_VERSION='${EM_VERSION}' is empty or malformed — refusing to publish."
+            exit 1
+          fi
+
+      - name: Restore accumulated site
+        run: |
+          # deploy-pages publishes only what we upload, so past versions live in a
+          # pages-store branch; pull it in and add this run's version alongside.
+          # CRITICAL: distinguish "branch absent" from "fetch failed". The later step
+          # force-pushes site/ to pages-store, so a transient fetch failure treated as
+          # "starting fresh" would overwrite pages-store with only this run's version
+          # and wipe all published history. If the branch EXISTS but can't be fetched,
+          # FAIL rather than publish a truncated site.
+          mkdir -p site
+          remote="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          if ! git ls-remote --exit-code "$remote" pages-store >/dev/null 2>&1; then
+            echo "No pages-store branch yet; starting fresh."
+          else
+            tmp="$(mktemp -d)"
+            git -C "$tmp" init -q
+            git -C "$tmp" remote add origin "$remote"
+            ok=false
+            for attempt in 1 2 3; do
+              if git -C "$tmp" fetch -q --depth=1 origin pages-store; then ok=true; break; fi
+              echo "fetch attempt $attempt failed; retrying..."; sleep 5
+            done
+            if [ "$ok" != true ]; then
+              echo "::error::pages-store exists but could not be fetched — refusing to publish (would wipe report history)."
+              exit 1
+            fi
+            git -C "$tmp" checkout -q FETCH_HEAD
+            rm -rf "$tmp/.git"
+            # No `|| true`: a partial restore must abort rather than be force-pushed as truth.
+            cp -r "$tmp"/. site/
+            echo "Restored existing pages-store."
+          fi
+
+      - name: Merge into this version's HTML report
+        run: |
+          shopt -s nullglob
+          VDIR="site/${EM_VERSION}"
+          # Rebuild this version's folder from just this run's output, so a re-run
+          # of the same version can't leave stale files behind (e.g. an older report
+          # layout).
+          rm -rf "$VDIR"
+          mkdir -p "$VDIR"
+          # Skip any unparseable JSON (e.g. a spec killed mid-write) so one bad
+          # file can't fail the whole combined report.
+          for f in collected/json/*.json; do
+            node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'))" "$f" 2>/dev/null \
+              || { echo "::warning::Skipping unparseable mochawesome JSON: $f"; rm -f "$f"; }
+          done
+          jsons=(collected/json/*.json)
+          if [ ${#jsons[@]} -eq 0 ]; then
+            echo "::warning::No mochawesome JSON found — publishing a placeholder page."
+            printf '<!doctype html><title>No results</title><h1>No test results were produced for %s.</h1>' \
+              "${EM_VERSION}" > "$VDIR/index.html"
+          else
+            echo "Merging ${#jsons[@]} per-spec JSON file(s) into ${VDIR}..."
+            # Versions pinned to match the runner's report so the combined report
+            # renders identically to the per-spec ones.
+            npx --yes mochawesome-merge@5.1.1 collected/json/*.json -o collected/combined.json
+            npx --yes mochawesome-report-generator@6.3.2 collected/combined.json \
+              --reportDir "$VDIR" --reportFilename index --inline \
+              --reportTitle "${EM_NAME}_${EM_VERSION}" \
+              --reportPageTitle "${EM_NAME}_${EM_VERSION}"
+          fi
+
+      - name: Build version index
+        run: |
+          cd site
+          # Root index lists every published version folder, newest first; the
+          # highest version is marked (latest). Version dirs are vX.Y.Z (no odd
+          # chars), so globbing with ls is safe here.
+          # shellcheck disable=SC2012
+          versions=$(ls -d v*/ 2>/dev/null | sed 's#/##' | sort -Vr)
+          latest=$(echo "$versions" | head -n1)
+          {
+            echo '<!doctype html><meta charset="utf-8">'
+            echo "<title>${EM_NAME} — Cypress test reports</title>"
+            echo "<h1>${EM_NAME} — Cypress test reports</h1><ul>"
+            for v in $versions; do
+              tag=""; [ "$v" = "$latest" ] && tag=" (latest)"
+              echo "<li><a href=\"./${v}/index.html\">${v}${tag}</a></li>"
+            done
+            echo '</ul>'
+          } > index.html
+
+      - name: Save accumulated site
+        run: |
+          # Persist the cumulative site to a pages-store branch as one orphan commit;
+          # its history is irrelevant, so force-push the latest snapshot each run.
+          cd site
+          git init -q
+          git checkout -q -b pages-store
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Publish ${EM_NAME}_${EM_VERSION} report" || echo "nothing to commit"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" pages-store
+          rm -rf .git   # don't ship git metadata into the Pages artifact (upload uses path: site)
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

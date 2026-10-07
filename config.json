@@ -1,0 +1,46 @@
+{
+  "name": "Project XML Sync",
+  "description": "Compares a project's design with a Project XML exported from another server (e.g. the TEST copy of a trial) and applies the selected differences to this project. Field changes go through Draft Mode; events, mappings, repeating setup, DQ rules, surveys, ASIs, alerts and other settings are applied directly. Every applied change is logged.",
+  "namespace": "CCTC\\ProjectXmlSyncModule",
+  "framework-version": 16,
+  "documentation": "https://github.com/CCTC-team/project_xml_sync",
+  "authors": [
+    {
+      "name": "Richard Hardy",
+      "email": "rmh54@cam.ac.uk",
+      "institution": "University of Cambridge - Cambridge Cancer Trials Centre"
+    },
+    {
+      "name": "Mintoo Xavier",
+      "email": "mintoo.xavier1@nhs.net",
+      "institution": "Cambridge University Hospital - Cambridge Cancer Trials Centre"
+    }
+  ],
+  "links": {
+    "project": [
+      {
+        "name": "Project XML Sync",
+        "key": "project-xml-sync",
+        "icon": "fas fa-code-compare",
+        "url": "index.php",
+        "show-header-and-footer": true
+      }
+    ]
+  },
+  "project-settings": [
+    {
+      "key": "restrict-to-super-users",
+      "name": "Only allow administrators to apply changes. When unchecked, any user with Project Design &amp; Setup rights can review and apply changes (core REDCap production restrictions still apply).",
+      "type": "checkbox",
+      "repeatable": false,
+      "required": false,
+      "super-users-only": true
+    }
+  ],
+  "compatibility": {
+    "php-version-min": "8.0.27",
+    "php-version-max": "8.2.99",
+    "redcap-version-min": "14.7.0",
+    "redcap-version-max": "15.9.1"
+  }
+}
