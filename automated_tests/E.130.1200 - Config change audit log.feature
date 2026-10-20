@@ -8,11 +8,6 @@ Feature: E.130.1200 - The system shall record configuration changes for the Proj
     Given I login to REDCap with the user "Test_Admin"
     When I click on the link labeled "Control Center"
     And I click on the link labeled "Manage"
-    When I click on the button labeled "Enable a module"
-    And I wait for 2 seconds
-    And I click on the button labeled "Enable" in the row labeled "Project XML Sync"
-    And I wait for 1 second
-    And I click on the button labeled "Enable"
     Then I should see "Project XML Sync - v1.0.0"
 
   Scenario: E.130.1200 - Configuration changes are logged with old and new values

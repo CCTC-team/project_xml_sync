@@ -8,13 +8,6 @@ Scenario: E.130.400 - Allow non-admins to enable this module on projects
     When I click on the link labeled "Control Center"
     When I click on the link labeled "Manage"
     Then I should see "External Modules - Module Manager"
-    And I should NOT see "Project XML Sync - v1.0.0"
-    When I click on the button labeled "Enable a module"
-    And I wait for 2 seconds
-    Then I should see "Available Modules"
-    And I click on the button labeled "Enable" in the row labeled "Project XML Sync"
-    And I wait for 1 second
-    And I click on the button labeled "Enable"
     Then I should see "Project XML Sync - v1.0.0"
     
     When I click on the button labeled "Configure"

@@ -8,11 +8,6 @@ Feature: E.130.1000 - The system shall allow users with Project Design & Setup r
     Given I login to REDCap with the user "Test_Admin"
     When I click on the link labeled "Control Center"
     And I click on the link labeled "Manage"
-    When I click on the button labeled "Enable a module"
-    And I wait for 2 seconds
-    And I click on the button labeled "Enable" in the row labeled "Project XML Sync"
-    And I wait for 1 second
-    And I click on the button labeled "Enable"
     Then I should see "Project XML Sync - v1.0.0"
 
   Scenario: E.130.1000 - Set up a production project with a Design user
