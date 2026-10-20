@@ -33,7 +33,11 @@ Feature: E.130.1200 - The system shall record configuration changes for the Proj
     And I should see a table header and row containing the following values in a table:
       | Name      | Value                   |
       | setting   | restrict-to-super-users |
+    And I should see a table header and row containing the following values in a table:
+      | Name      | Value                   |
       | new_value | 1                       |
+    And I should see a table header and row containing the following values in a table:
+      | Name      | Value                   |
       | old_value | (empty)                 |
     And I click on the button labeled "Close"
 
