@@ -4,7 +4,7 @@ Feature: E.130.1000 - The system shall allow users with Project Design & Setup r
   I want to copy amendments myself
   But only within what REDCap normally allows me to change in a production project
 
-  Scenario: Enable external module from Control Center
+  Scenario: Verify external module is enabled in Control Center
     Given I login to REDCap with the user "Test_Admin"
     When I click on the link labeled "Control Center"
     And I click on the link labeled "Manage"

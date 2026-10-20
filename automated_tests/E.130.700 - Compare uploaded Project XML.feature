@@ -4,7 +4,7 @@ Feature: E.130.700 - The system shall support the ability to compare a project w
   I want to see every difference between the TEST copy of a trial and the production project
   So that no amendment is missed when the changes are copied across
 
-  Scenario: Enable external module from Control Center
+  Scenario: Verify external module is enabled in Control Center
     Given I login to REDCap with the user "Test_Admin"
     When I click on the link labeled "Control Center"
     And I click on the link labeled "Manage"

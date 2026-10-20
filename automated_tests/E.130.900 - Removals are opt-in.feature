@@ -4,7 +4,7 @@ Feature: E.130.900 - The system shall list items that exist in the project but n
   I want removals to need an explicit decision
   So that nothing is deleted from a live trial by accident
 
-  Scenario: Enable external module from Control Center
+  Scenario: Verify external module is enabled in Control Center
     Given I login to REDCap with the user "Test_Admin"
     When I click on the link labeled "Control Center"
     And I click on the link labeled "Manage"

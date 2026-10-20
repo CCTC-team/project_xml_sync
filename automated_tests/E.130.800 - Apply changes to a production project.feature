@@ -4,7 +4,7 @@ Feature: E.130.800 - The system shall support the ability to apply the selected 
   I want the amendments made on the TEST server copied to the production project
   So that REDCap's draft review still protects field changes and nothing is missed
 
-  Scenario: Enable external module from Control Center
+  Scenario: Verify external module is enabled in Control Center
     Given I login to REDCap with the user "Test_Admin"
     When I click on the link labeled "Control Center"
     And I click on the link labeled "Manage"

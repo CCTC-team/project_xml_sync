@@ -4,7 +4,7 @@ Feature: E.130.1100 - The system shall log every change applied by Project XML S
   I want an audit trail of what was copied, by whom and when
   So that amendments to a trial are traceable
 
-  Scenario: Enable external module from Control Center
+  Scenario: Verify external module is enabled in Control Center
     Given I login to REDCap with the user "Test_Admin"
     When I click on the link labeled "Control Center"
     And I click on the link labeled "Manage"
