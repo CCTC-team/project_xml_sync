@@ -19,7 +19,7 @@ Feature: E.130.700 - The system shall support the ability to compare a project w
 
   Scenario: E.130.700 - Upload the amended XML and review the differences
     Given I create a new project named "E.130.700" by clicking on "New Project" in the menu bar, selecting "Practice / Just for fun" from the dropdown, choosing file "fixtures/cdisc_files/E130_base.xml", and clicking the "Create Project" button
-    And I click on the link labeled "Manage"
+    And I click on the second link labeled "Manage"
     When I click on the button labeled "Enable a module"
     And I click on the button labeled "Enable" in the row labeled "Project XML Sync - v1.0.0"
     Then I should see "Project XML Sync - v1.0.0"

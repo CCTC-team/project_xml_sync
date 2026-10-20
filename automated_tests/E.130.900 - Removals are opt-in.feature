@@ -19,7 +19,7 @@ Feature: E.130.900 - The system shall list items that exist in the project but n
     # The production project is created from the AMENDED design and compared with the BASE
     # design, so the amendments show up as removals.
     Given I create a new project named "E.130.900" by clicking on "New Project" in the menu bar, selecting "Practice / Just for fun" from the dropdown, choosing file "fixtures/cdisc_files/E130_amended.xml", and clicking the "Create Project" button
-    And I click on the link labeled "Manage"
+    And I click on the second link labeled "Manage"
     When I click on the button labeled "Enable a module"
     And I click on the button labeled "Enable" in the row labeled "Project XML Sync - v1.0.0"
     Then I should see "Project XML Sync - v1.0.0"
