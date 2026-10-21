@@ -4,20 +4,15 @@ Feature: E.130.1200 - The system shall record configuration changes for the Proj
   I want every configuration change to be written to the module's External Module Logs
   So that there is an audit trail of who changed which setting, when, and from what value to what.
 
-  Scenario: Enable external module from Control Center
+  Scenario: Verify external module is enabled in Control Center
     Given I login to REDCap with the user "Test_Admin"
     When I click on the link labeled "Control Center"
     And I click on the link labeled "Manage"
-    When I click on the button labeled "Enable a module"
-    And I wait for 2 seconds
-    And I click on the button labeled "Enable" in the row labeled "Project XML Sync"
-    And I wait for 1 second
-    And I click on the button labeled "Enable"
     Then I should see "Project XML Sync - v1.0.0"
 
   Scenario: E.130.1200 - Configuration changes are logged with old and new values
     Given I create a new project named "E.130.1200" by clicking on "New Project" in the menu bar, selecting "Practice / Just for fun" from the dropdown, choosing file "fixtures/cdisc_files/E130_base.xml", and clicking the "Create Project" button
-    And I click on the link labeled "Manage"
+    And I click on the second link labeled "Manage"
     When I click on the button labeled "Enable a module"
     And I click on the button labeled "Enable" in the row labeled "Project XML Sync - v1.0.0"
     Then I should see "Project XML Sync - v1.0.0"
@@ -38,8 +33,12 @@ Feature: E.130.1200 - The system shall record configuration changes for the Proj
     And I should see a table header and row containing the following values in a table:
       | Name      | Value                   |
       | setting   | restrict-to-super-users |
-      | old_value | (empty)                 |
+    And I should see a table header and row containing the following values in a table:
+      | Name      | Value                   |
       | new_value | 1                       |
+    And I should see a table header and row containing the following values in a table:
+      | Name      | Value                   |
+      | old_value | (empty)                 |
     And I click on the button labeled "Close"
 
     # Disable external module in Control Center

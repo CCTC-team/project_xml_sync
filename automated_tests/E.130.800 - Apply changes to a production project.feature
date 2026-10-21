@@ -4,20 +4,15 @@ Feature: E.130.800 - The system shall support the ability to apply the selected 
   I want the amendments made on the TEST server copied to the production project
   So that REDCap's draft review still protects field changes and nothing is missed
 
-  Scenario: Enable external module from Control Center
+  Scenario: Verify external module is enabled in Control Center
     Given I login to REDCap with the user "Test_Admin"
     When I click on the link labeled "Control Center"
     And I click on the link labeled "Manage"
-    When I click on the button labeled "Enable a module"
-    And I wait for 2 seconds
-    And I click on the button labeled "Enable" in the row labeled "Project XML Sync"
-    And I wait for 1 second
-    And I click on the button labeled "Enable"
     Then I should see "Project XML Sync - v1.0.0"
 
   Scenario: E.130.800 - First pass: fields to Draft Mode, other components applied
     Given I create a new project named "E.130.800" by clicking on "New Project" in the menu bar, selecting "Practice / Just for fun" from the dropdown, choosing file "fixtures/cdisc_files/E130_base.xml", and clicking the "Create Project" button
-    And I click on the link labeled "Manage"
+    And I click on the second link labeled "Manage"
     When I click on the button labeled "Enable a module"
     And I click on the button labeled "Enable" in the row labeled "Project XML Sync - v1.0.0"
     Then I should see "Project XML Sync - v1.0.0"

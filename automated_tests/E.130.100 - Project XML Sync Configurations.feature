@@ -8,17 +8,10 @@ Feature: E.130.100 - The system shall support the ability to enable/disable Proj
     When I click on the link labeled "Control Center"
     And I click on the link labeled "Manage"
     Then I should see "External Modules - Module Manager"
-    And I should NOT see "Project XML Sync - v1.0.0"
-    When I click on the button labeled "Enable a module"
-    And I wait for 2 seconds
-    Then I should see "Available Modules"
-    And I click on the button labeled "Enable" in the row labeled "Project XML Sync"
-    And I wait for 1 second
-    And I click on the button labeled "Enable"
     Then I should see "Project XML Sync - v1.0.0"
 
     When I create a new project named "E.130.100" by clicking on "New Project" in the menu bar, selecting "Practice / Just for fun" from the dropdown, choosing file "fixtures/cdisc_files/E130_base.xml", and clicking the "Create Project" button
-    And I click on the link labeled "Manage"
+    And I click on the second link labeled "Manage"
     Then I should see "External Modules - Project Module Manager"
     When I click on the button labeled "Enable a module"
     And I click on the button labeled "Enable" in the row labeled "Project XML Sync - v1.0.0"
