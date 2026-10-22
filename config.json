@@ -36,11 +36,5 @@
       "required": false,
       "super-users-only": true
     }
-  ],
-  "compatibility": {
-    "php-version-min": "8.0.27",
-    "php-version-max": "8.2.99",
-    "redcap-version-min": "14.7.0",
-    "redcap-version-max": "17.5.6"
-  }
+  ]
 }
