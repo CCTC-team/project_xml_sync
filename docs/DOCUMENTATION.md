@@ -11,13 +11,16 @@ to the production project.
 - Richard Hardy — University of Cambridge, Cambridge Cancer Trials Centre
 - Mintoo Xavier — Cambridge University Hospital, Cambridge Cancer Trials Centre
 
-### Compatibility
+### Tested With
 
-| | Min | Max |
-|---|---|---|
-| PHP | 8.0.27 | 8.2.99 |
-| REDCap | 14.7.0 | 15.9.1 |
-| EM framework | 16 | |
+The module has been tested with:
+
+| | Versions |
+|---|---|
+| PHP | 8.2 |
+| REDCap | 14.7.0, 15.5.36, 17.5.6 |
+
+The module uses EM framework 16. `config.json` sets no PHP or REDCap version limits.
 
 Instrument custom CSS needs REDCap 15+ (on 14.x a CSS change is reported and fails with a clear message).
 
